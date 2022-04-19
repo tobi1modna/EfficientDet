@@ -24,8 +24,20 @@ import json
 from tqdm import trange
 import cv2
 
+import sys
+sys.path.append("/data/effD/Yolo-train-EfficientDet/EfficientDet")
+
 from generators.coco import CocoGenerator
 
+
+#Allow GPU Growth
+from keras.backend.tensorflow_backend import set_session
+import tensorflow as tf
+tfconfig = tf.ConfigProto()
+tfconfig.gpu_options.allow_growth = True  # dynamically grow the memory used on the GPU
+tfconfig.log_device_placement = False  # to log device placement (on which device the operation ran)
+sess = tf.Session(config=tfconfig)
+set_session(sess)  # set this TensorFlow session as the default session for Keras
 
 def evaluate(generator, model, threshold=0.01):
     """
@@ -96,17 +108,16 @@ def evaluate(generator, model, threshold=0.01):
     json.dump(results, open('{}_bbox_results.json'.format(generator.set_name), 'w'), indent=4)
     json.dump(image_ids, open('{}_processed_image_ids.json'.format(generator.set_name), 'w'), indent=4)
 
-    # # load results in COCO evaluation tool
-    # coco_true = generator.coco
-    # coco_pred = coco_true.loadRes('{}_bbox_results.json'.format(generator.set_name))
-    #
-    # # run COCO evaluation
-    # coco_eval = COCOeval(coco_true, coco_pred, 'bbox')
-    # coco_eval.params.imgIds = image_ids
-    # coco_eval.evaluate()
-    # coco_eval.accumulate()
-    # coco_eval.summarize()
-    # return coco_eval.stats
+    # load results in COCO evaluation tool
+    coco_true = generator.coco
+    coco_pred = coco_true.loadRes('{}_bbox_results.json'.format(generator.set_name))
+    # run COCO evaluation
+    coco_eval = COCOeval(coco_true, coco_pred, 'bbox')
+    coco_eval.params.imgIds = image_ids
+    coco_eval.evaluate()
+    coco_eval.accumulate()
+    coco_eval.summarize()
+    return coco_eval.stats
 
 
 class Evaluate(keras.callbacks.Callback):
@@ -167,17 +178,17 @@ if __name__ == '__main__':
 
     os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 
-    phi = 2
-    weighted_bifpn = True
-    model_path = 'efficientdet-d2.h5'
+    phi = 0
+    weighted_bifpn = False
+    model_path = '/data/effD/Yolo-train-EfficientDet/EfficientDet/checkpoints/2022-04-03/coco_35_0.0195_0.0083.h5'
     common_args = {
         'batch_size': 1,
         'phi': phi,
     }
 
     test_generator = CocoGenerator(
-        'datasets/coco',
-        'test-dev2017',
+        '/data/effD/dataset/yolo_ds_no_bg',
+        'test',
         shuffle_groups=False,
         **common_args
     )
